@@ -1,1 +1,0 @@
-This is my folder containing submission material for problem set one. One thing to mention is that I was having a difficult time getting the file to knit to a PDF, so for this submission, I only have the R Markdown file.
