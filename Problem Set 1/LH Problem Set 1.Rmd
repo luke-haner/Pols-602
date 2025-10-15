@@ -1,0 +1,206 @@
+---
+title: "LH Problem Set 1"
+author: "Luke Haner"
+date: "2025-09-29"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r}
+
+rm(list = ls())
+
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/lukeh/OneDrive/Desktop/Pols 602/Problem Set 1")
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(ggplot2)
+library(tinytex)
+```
+
+
+#Simulation Exercise 
+
+#Randomly Samples N Observations from a population with some distribution of traits as N increases, and randomly assigns each observation to the treatment or control group with an equal probability 
+
+```{r, echo=FALSE}
+
+produce <- data.frame(
+  Name = c('Strawberry', 'Blueberry', 'Orange', 'Banana'), 
+  Color = c('Red', 'Blue', 'Orange', 'Yellow'),
+  Frequency = c(0.30, 0.15, 0.45, 0.10) # proportions that equal 1 
+)
+
+repetition <- 100 #Number of repetitions 
+
+set.seed(123)
+
+
+#doing simulation once with fixed n at 1000
+assignment_fixed <- replicate(repetition, { 
+trait <- sample(produce$Name, size = 1000, replace = TRUE, prob = produce$Frequency) #creates vector of 1000 labels randomly chosen in line with population distribution 
+Z <- rbinom(1000,1,0.5) # generates random draws from a binomial distribution with a coin flip probability to assign treatment and control groups  
+data.frame(trait = trait, Z = Z) # combines two previous vectors (trait and Z) into a data frame 
+}, simplify = FALSE)
+
+
+assignment_many_times <- list() # container for sample sizes 
+n_vals <-c(100, 300, 500, 700, 1000) #sample sizes as n increases 
+
+
+for(n in n_vals){
+  sims <- replicate(repetition,{
+    trait <- sample(produce$Name, size=n, replace = TRUE, prob = produce$Frequency)
+    Z <- rbinom(n, 1, 0.5) #assigns a coin flip probability from a normal distribution  
+    data.frame(trait = trait, Z=Z)
+  }, simplify = FALSE)
+  
+  assignment_many_times[[as.character(n)]] <- sims
+  
+}
+```
+
+#Calculate the proportion of traits for the entire sample, treatment, and control groups for each iteration.
+
+```{r, echo=FALSE}
+
+results <- data.frame(iter = integer(), group = character(), fruit_name = character(),prop = numeric()) #container for results 
+
+#loop over each sample size in simulations
+for (n in names(assignment_many_times)){ 
+
+  sims <- assignment_many_times[[n]]
+
+for (i in seq_along(sims)){
+  df <- sims[[i]]
+  n_obs <- nrow(df)
+  
+  #calculate proportions of each fruit in the full sample
+  prop_all <- as.numeric(table(factor(df$trait, levels = produce$Name))) / n_obs   
+
+  n_treat <- sum(df$Z ==1)
+  n_ctrl <- n_obs - n_treat 
+  #calculate proportion of each fruit in treatment group 
+  prop_t <- as.numeric(table(factor(df$trait[df$Z == 1], levels = produce$Name))) / n_treat   
+  #calculate proportion  of each fruit in the control group
+  prop_c <- as.numeric(table(factor(df$trait[df$Z == 0], levels = produce$Name))) / n_ctrl   
+
+  #Combine results into dataframe
+  results <- dplyr::bind_rows(  
+    results,
+    data.frame(iter = i, n = as.numeric(n), group = 'All', fruit_name = produce$Name, prop = prop_all),
+    data.frame(iter = i, n = as.numeric(n), group = 'Treat', fruit_name = produce$Name, prop = prop_t),
+    data.frame(iter = i, n = as.numeric(n), group = 'Control', fruit_name = produce$Name, prop = prop_c)
+    )
+  }
+}
+
+#attach population proportions 
+res_full <- results %>% 
+  left_join(produce %>% rename(fruit_name = Name, pop_prop = Frequency),
+            by = 'fruit_name') %>%
+  mutate(imbalance = pop_prop - prop)
+                     
+#Table for visualization 
+res_wide <- res_full %>% 
+  select(-imbalance) %>% 
+  pivot_wider(names_from = group, values_from = prop) %>%
+  rename(population = pop_prop) %>%
+  arrange(iter, fruit_name)
+
+#Plot for Visualization
+ggplot(results, aes(x = n, y = prop, color = group)) +  
+  geom_point() + geom_line() +
+  geom_hline(data = produce %>% rename(fruit_name = Name, pop_prop = Frequency), 
+             aes(yintercept = pop_prop), linetype = 2) +
+  facet_wrap(~ fruit_name) +
+  labs(x = "Sample size (n)", y = "Proportion",
+       title = "Treatment & Control proportions approach population as n increases",
+       subtitle = "Dashed line = population proportion per fruit") +
+  theme_minimal()
+
+
+```
+#Visualization Interpretation 
+As the sample size increases it is observed that the proportions of all the fruit in the treatment and control groups move to be more and more in line with the population distribution (dashed line).
+#Data Excercise
+```{r}
+voting_data <- read.csv("voting.csv")
+
+```
+
+
+#1.What is the treatment variable? Is it a discrete or continuous variable? What is the variable’s data type?
+```{r}
+
+typeof(voting_data$message)
+```
+The treatment variable is the message (Variable describing whether a voter received the social pressure message)
+
+It is a discrete variable and has a character data type.
+
+
+#2.Create a new treatment variable in your dataframe that is a binary version of the existing treatment variable. Your new variable should equal 1 if the observation was treated and 0 otherwise.
+```{r}
+
+message_binary <- ifelse(voting_data$message == 'yes', 1,0)
+
+```
+
+#3. Compute the average outcome of the treatment group and the average outcome for the control group. Interpret the results by writing 1-2 sentences about what these numbers mean substantively.
+```{r}
+
+average_treatment_outcome <- mean(voting_data$voted[message_binary == 1]) #takes average of treated outcomes 
+
+average_control_outcome <- mean(voting_data$voted[message_binary ==0])# takes average of control outcomes 
+
+
+print(average_treatment_outcome)
+print(average_control_outcome)
+```
+The average outcome of the treatment group is 0.3779842, and the average outcome of the control group is 0.2966383. These numbers indicate the percentages of each group who went on to vote in an election. A larger amount of the treatment group went on to vote in an election compared to the control group, highlighting that the treatment led to an increased amount in voter turnout.
+
+
+
+#4.Use brackets to subset the data frame and create two new data frames, one for the treatment group and one for the control group.
+```{r}
+
+treatment_group_df <- voting_data[message_binary == 1, ]
+
+control_group_df <- voting_data[message_binary == 0, ]
+
+head(treatment_group_df)
+head(control_group_df)
+```
+
+#5.What is the average birth year for the treatment and control groups?
+```{r}
+
+treatment_average_birth_year <- mean(treatment_group_df$birth)
+  
+control_average_birth_year <- mean(control_group_df$birth)
+
+print(treatment_average_birth_year)
+print(control_average_birth_year)
+```
+The average birth year for the treatment group is 1956.147, and the average birth year for the control group is 1956.186.
+
+
+#6.What is the estimated average causal effect for this experiment? Provide the calculated average effect and a substantive interpretation.
+```{r}
+average_causal_effect <- average_treatment_outcome - average_control_outcome
+print(average_causal_effect)
+```
+The average causal effect is 0.08130991, meaning that the social pressure message caused an 8.1 percentage point increase in voter turnout compared to the control group who did not receive such a message.
+
+
+
+#7.Suppose we wanted to claim that the estimated causal effect is an estimated effect for the entire U.S. population. What assumption would need to hold for us to make this claim?
+
+The assumptions needed to generalize results to the entire U.S. population are that the control and treatment groups are comparable (in order to estimate average causal effects) and that the sample is representative of the overall U.S. population, best accomplished by random sampling individuals into the experiment and not excluding any group either intentionally or unintentionally.
+
+
+
+
