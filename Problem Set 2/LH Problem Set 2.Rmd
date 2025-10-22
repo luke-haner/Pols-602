@@ -1,0 +1,90 @@
+---
+title: "Problem Set 2"
+author: "Luke Haner"
+date: "2025-10-19"
+output: pdf_document
+---
+
+#Simulation Excercise 
+
+#1.Use the Rnorm function to create two random variables in R with 20 Observatons, then calculate correlation between the two and repeat this process many times.
+```{r}
+rm(list = ls()) #clearing environment 
+set.seed(123) #setting seed for reproducibility 
+
+n_repititions <- 1000 #number of repetitions of process 
+
+cor_val <- numeric(n_repititions) #storage container for correlation simulation to go 
+
+#creating for loop that runs many times(1000)
+for (i in 1:n_repititions)  {
+  a <- rnorm(20) # creates first random variable with 20 observations
+  b <- rnorm(20) # creates second random variable with 20 observations 
+  cor_val[i] <- cor(a,b) #calculates correlation between two variables and stores results in vector 
+}
+
+summary(cor_val)
+
+#Plotting of distribution of the correlation coefficient 
+hist(cor_val)
+
+#standard deviation of correlation between variables 
+print(sd(cor_val))
+
+#mean of correlation between two variables many times 
+print(mean(cor_val))
+```
+The standard deviation is 0.2378933, and the average correlation between the two variables is -0.0007532091, or approximately 0. This distribution tells us that the sample estimate can vary (measured by the standard deviation) substantially from the population parameter, which in this case the correlation of 0 between the two variables.
+
+#Repeat the previous step with a sample size of 1,000 and provide a substantive interpretation of how the results differ.
+```{r}
+set.seed(123) #setting seed for reproducibility 
+
+n_repititions <- 1000 #number of repetitions of process 
+
+cor_val_2 <- numeric(n_repititions) #storage container for correlation simulation to go 
+
+#creating for loop that runs many times(1000)
+for (i in 1:n_repititions)  {
+  c <- rnorm(1000) # recreates first random variable to have 1000 observations 
+  d <- rnorm(1000) # recreates second random variable to have 1000 observations 
+  cor_val_2[i] <- cor(c,d) #calculates correlation between two variables and stores results in vector 
+}
+
+summary(cor_val_2)
+
+#Plotting of distribution of the correlation coefficient 
+hist(cor_val_2)
+
+#standard deviation of correlation between variables 
+sd(cor_val_2)
+
+#mean of correlation between two variables many times 
+mean(cor_val_2)
+```
+The standard deviation from repeating the simulation with a sample size of 1,000 is 0.03167756, which is a lot smaller compared to the sample of 20. The mean from this simulation is 0.001025485, or approximately 0. Increasing the size of the sample reduces the variation in the sample estimates (measured by standard deviation) so that they are closer to the population parameter which is the correlation of 0 between the two variables. 
+
+#Create three random variables with the relationship specified, plot x and y on a scatterplot, report their corrleation, and discuss what this tells us about interpreting correlations.
+```{r}
+
+set.seed(123) #setting seed for reproducibility
+
+z <- rnorm(500) # create random variable z with 500 observations 
+
+#creating x variable as a function of z with added noise 
+x <- z + 1 + rnorm(500)
+
+#creating y variable as a function of z with added noise 
+y <- z + 2 + rnorm(500)
+
+#scatter plot of x and y 
+plot(x,y)
+
+#correlation of x and y
+cor(x,y)
+
+```
+The correlation of x and y is 0.5133839, but this does not mean that x causes y. I know this since the variables were generated independently, meaning that any correlation is from the confounding variable z. The size of the correlation shows how much an effect z has on x and y. This implies that we cannot always assume that high correlation is equal to causation in our research and analysis. 
+
+
+
