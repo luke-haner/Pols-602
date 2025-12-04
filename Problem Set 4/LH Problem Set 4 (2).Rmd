@@ -1,0 +1,106 @@
+---
+title: "Problem Set 4"
+author: "Luke Haner"
+date: "2025-12-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#Reading 
+
+#1. What is the difference between a confounder and a collider? How should you address each in your models?
+
+A confounder is a variable such as Z that affects X and Y, while a collider is a variable such as Z that is caused both by X and Y. To address confounders in a model, you need to block its "backdoor path" (a non-causal association resulting from X and Y being affected by a confounding variable). To do this you can condition on it trough stratification, restriction, or adjustment. It is best to not adjust for colliders as if you do so, it would create a spurious association leading to a biased estimate of the effect of X on Y.
+
+#2. How can conditioning on a collider create bias?
+
+Conditioning on a collider creates bias because it introduces a non causal path between its causes (independent variable X and outcome Y), making them appear related even when they are not. By adjusting z which is caused both by X and Y, you are creating a spurious association that didn't exist before. 
+
+#3.Why can’t statistical summaries or correlations alone tell us whether to control for a variable?
+
+Statistical summaries or correlations are inefficient in telling us when to control a variable because they do not provide insight on the data generating process, which is essential to understanding the causal relationships at play.
+
+#4. What is meant by a “kitchen sink” regression, and what is wrong with this approach to modeling?
+
+A "kitchen sink" regression is one that is characterized by the selection of variables based on p-values or model-based information. This approach is problematic because it ignores underlying causal relationships which may introduce bias in ways such as ignoring a confounder or adjusting a collider.
+
+#5. What is a “backdoor path” and how does multiple regression help block these paths?
+
+A backdoor path is a non-causal pathway between the independent (X) and dependent variable (Y) through a confounding variable (Z) which creates a spurious connection, even if X does not actually cause Y. Multiple regression helps block these backdoor paths by conditioning on the confounder (Z). This holds Z constant in the model which allows us to get unbiased causal estimates of the effect of X on Y.
+
+#Simulation 
+```{r}
+#simulation on legislative professionalization on think tank emergence 
+
+#Setting see for predictability 
+set.seed(123)
+n <- 5000
+
+#Variables 
+C <- rnorm(n) #confounder of economy 
+Zt <- rnorm(n) # instrument affecting only X (legislator term limits)
+Zy <- rnorm(n) # variable only affecting y (outcome, number of think tanks that emerged per year over a span of time) 
+
+#Treatment: Legislative Professionalization 
+T <- 0.5*C + 0.7*Zt + rnorm(n) # treatment variable is a function of the confounder, instrument, and random noise (economic development and legislative professionalization)
+
+#Mediator: Policy Complexity 
+M <- 0.4*T + 0.3*C + rnorm(n) #function of the treatment and confounder plus random noise
+
+#Outcome: Think Tank Emergence 
+Y <- 1.0*T + 0.8*M + 0.5*C + 0.2*Zy + rnorm(n) #outcome Y is a function of the treatment, mediator, confounder, exogenous variable Zy which only effects Y, and random noise 
+
+#Collider: Bill Passage Rate 
+K <- 0.6*T + 0.4*Y + rnorm(n) #Collider K is bill passage rate which is affected by the treatment and outcome, plus noise
+
+#loading simulated data into data frame
+sim_data <- data.frame(T,Y,C,M,K,Zy,Zt)
+
+```
+
+#1.Fit a model that recovers the direct effect of the treatment on the outcome variable. Which variables are necessary to recover the direct effect?
+```{r}
+direct_model <- lm(Y ~ T + C + M, data = sim_data) #multiple regression that controls fro the confounder (C) and mediator (M) to isolate the causal effect of T on Y 
+
+summary(direct_model)
+
+#The variables that are necessary to recover the direct effect of the treatment on the outcome variable are the treatment, the outcome, the control, and the mediator. Including the confounder blocks the backdoor path, removing the spurious correlation and bias from my estimate. Additionally, including the mediator helps me isolate the  direct effect by blocking the indirect pathway from the treatment to the outcome.
+```
+#2.  Fit a model that recovers the total effect of the treatment on the outcome variable. How does your model change to estimate the total effect?
+```{r}
+total_effect_model <- lm(Y ~ T + C, data = sim_data) #multiple regression only controlling for confounder (C), so it captures indirect and direct effects of T on Y  
+
+summary(total_effect_model)
+
+#My model changes by removing the mediator from the model while still regressing Y on T while controlling for the confouder C. By doing this I keep the indirect pathway illustrated by the mediator open so that the model captures both the direct and indirect(mediated) effects of the treatment.
+```
+#.3 How do your results change when you control for the collider, the exogenous independent variable, or the instrument (individually, not all simultaneously)?
+```{r}
+#Controlling for collider (K)
+
+model_collider <- lm(Y ~ T + C + K, data = sim_data)
+summary(model_collider)
+
+#When controlling for the collider, the estimated effect of T drops from 1.32 (from the total effect model) to 0.71. This shows that by adjusting the colllider, I have introduced bias into my model/estimate.
+
+#controlling for the exogenous independent variable (Zy) 
+
+model_Zy <- lm(Y ~ T + C + Zy, data = sim_data)
+summary(model_Zy)
+
+#When controlling for the exogenous independent variable ZY,the estimated effect of T on Y remains roughly equal to its estimated effect from the total effect model, 1.31919 compared to 1.31569.
+
+#controlling for the instrument (Zt)
+
+model_Zt <- lm(Y ~ T + C + Zt, data = sim_data)
+summary(model_Zt)
+
+#When controlling for the instrument (Zt), the estimated effect of T on Y also remains roughly equal to its estimated effect from the total effect model, 1.31659 compared to 1.30581.
+```
+#4.Given the reading and simulation results, how should you choose which variables to include in a model?
+
+You should choose variables to include in your model based on your theoretical mapping (primarily shown through your DAG). Confounders must be included as they can create bias in your estimates from the backdoor path which creates spurious correlation between X and Y. It is also important to decide how to handle mediators. If you are looking for direct causal effects they should be included, but if you are measuring total effects they should be excluded from your model. Additionally, the simulation shows that controlling for factors such as exogenous independent variables and instruments may be unnecessary since they are not part of any backdoor path. As such, including them does not bias the estimate, but also provides no added benefit. Overall, selecting variables should follow the causal logic you have constructed for a hypothesis rather than only statistics-based criteria.
